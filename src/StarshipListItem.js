@@ -35,12 +35,12 @@ class StarshipListItem extends Component {
     return (
       <div>
         <h1>Name: {name}</h1>
-        <ul>
-          <li>Model: {model}</li>
-          <li>Starship Class: {starshipClass}</li>
-          <li>Cost In Credits: {costInCredits}</li>
-          <li>Hyper Drive Rating: {hyperdriveRating}</li>
-        </ul>
+        <dl>
+          <dt>Model:</dt><dd>{model}</dd>
+          <dt>Starship Class:</dt><dd>{starshipClass}</dd>
+          <dt>Cost In Credits:</dt><dd>{costInCredits}</dd>
+          <dt>Hyper Drive Rating:</dt><dd>{hyperdriveRating}</dd>
+        </dl>
       </div>
     );
   }
