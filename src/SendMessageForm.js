@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import gql from 'graphql-tag';
+import { uniqueId, uniqBy } from 'lodash';
 
 const updateQuery = gql`
   query UpdateMessagesMutationQuery {
@@ -12,6 +13,13 @@ const updateQuery = gql`
     }
   }
 `;
+
+// const markOptimistic = (obj) => {
+//   return {
+//     ...obj,
+//     [IsOptimistic]: true,
+//   }
+// }
 
 class SendMessageForm extends Component {
   static propTypes = {
@@ -37,7 +45,7 @@ class SendMessageForm extends Component {
         __typename: 'Mutation',
         addMessage: {
           __typename: 'Message',
-          id: 'TEMPORARY',
+          id: uniqueId('TEMPORARY'),
           timestamp: +new Date(),
           username: this.state.username,
           messageBody: this.state.messageBody,
@@ -46,7 +54,7 @@ class SendMessageForm extends Component {
       update: (proxy, { data: { addMessage } }) => {
         const data = proxy.readQuery({ query: updateQuery });
         
-        data.messages.push(addMessage);
+        data.messages = uniqBy([...data.messages, addMessage], 'id');
         
         proxy.writeQuery({ query: updateQuery, data });
       },
