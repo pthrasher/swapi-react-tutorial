@@ -4,13 +4,14 @@ import gql from 'graphql-tag';
 
 import { uniqBy } from 'lodash';
 import { split } from 'apollo-link';
+import { ApolloLink } from 'apollo-link';
 import { ApolloClient } from 'apollo-client';
 import { createHttpLink } from "apollo-link-http";
 import { InMemoryCache } from 'apollo-cache-inmemory';
+import { withClientState } from 'apollo-link-state';
 import { WebSocketLink } from 'apollo-link-ws';
 import { getMainDefinition } from 'apollo-utilities';
-
-import SendMessageForm from './SendMessageForm';
+import MessagingApp from './MessagingApp';
 
 import logo from './logo.svg';
 import './App.css';
@@ -22,7 +23,7 @@ const wsLink = new WebSocketLink({
   }
 });
 
-const link = split(
+const networkLink = split(
   // split based on operation type
   ({ query }) => {
     const { kind, operation } = getMainDefinition(query);
@@ -33,112 +34,97 @@ const link = split(
 );
 
 const cache = new InMemoryCache();
-const apolloClientInstance = new ApolloClient({ cache, link });
 
-const query = gql`
-  query AllMessagesQuery {
-    messages {
-      id
-      username
-      messageBody
-      timestamp
+cache.resetState(JSON.parse(localStorage.getItem('grxapollocache')));
+
+const linkStateConfig = {
+  cache,
+  defaults: {
+    username: '',
+  },
+  resolvers: {
+    Mutation: {
+      setUsername: (_, { username }, { cache }) => {
+        cache.writeData({ 
+          data: {
+            username,
+          },
+        });
+        return null;
+      },
     }
   }
-`;
-
-
-const mutation = gql`
-  mutation AddMessageMutation($username: String!, $messageBody: String!) {
-    addMessage(username: $username, messageBody: $messageBody) {
-      id
-      username
-      messageBody
-      timestamp
-    }
-  }
-`;
-
-const subscription = gql`
-  subscription messageAddedSubscription {
-    messageAdded {
-      id
-      username
-      messageBody
-      timestamp
-    }
-  }
-`;
-
-const isOptimistic = (object, cacheInstance) => {
-  return cacheInstance.optimistic.some(
-    (transaction) => {
-      return transaction.data[`${object.__typename}:${object.id}`] != null;
-    }
-  );
 };
 
-class Wrapper extends Component {
-  componentDidMount() {
-    this.unsubscribe = this.props.subscribeToMore({
-      document: subscription,
-      updateQuery: (prev, { subscriptionData }) => {
-        if (!subscriptionData.data) return prev;
-        const concattedMessages = [
-          ...prev.messages,
-          subscriptionData.data.messageAdded,
-        ];
-        
-        const messages = uniqBy(concattedMessages, 'id')
-        
-        return {
-          ...prev,
-          messages,
-        };
-      }
-    });
+const link = ApolloLink.from([
+  withClientState(linkStateConfig),
+  networkLink,
+]);
+
+const localQuery = gql`
+  query UsernameQuery {
+    username @client
   }
-  compoentWillUnmount() {
-    if (this.unsubscribe) this.unsubscribe();
+`;
+
+const setUsernameMutation = gql`
+  mutation SetUsernameMutation($username: String) {
+    setUsername(username: $username) @client
   }
-  
-  render() {
-    const {
-      data,
-      loading,
-      error,
-      client
-    } = this.props;
-    return (
-      error || loading || !data ? null : (
-        <div>
-          <Mutation mutation={mutation}>
-            {(addMessage) => <SendMessageForm onSubmit={addMessage}
-            />}
-          </Mutation>
-          {(data.messages || []).map((msg) => {
-            return (
-              <div style={{opacity: isOptimistic(msg, client.cache) ? 0.5 : 1}} key={`${msg.timestamp}${msg.username}`}>
-                <h3>{msg.username}</h3>
-                <h4>{msg.messageBody}</h4>
-                <i>{new Date(msg.timestamp).toDateString()}</i>
-              </div>
-            )
-          })}
-        </div>
-      )
-    );
-  }
-} 
+`;
+
+const apolloClientInstance = new ApolloClient({ cache, link });
 
 class App extends Component {
   render() {
     return (
       <ApolloProvider client={apolloClientInstance}>
-        <div className="App">
-          <Query query={query}>
-            {({data, error, loading, refetch, client, subscribeToMore }) => ( <Wrapper {...{data, error, loading, client, subscribeToMore }}/> )}
-          </Query>
-        </div>
+        <Query query={localQuery}>
+          {({ data, error, loading}) => {
+            if (error || loading) return null;
+            
+            if (data && data.username) {
+              return (
+                <div className="App">
+                  <MessagingApp username={data.username} />
+                </div>
+              );
+            }
+            
+            let typedUsername = '';
+            
+            return (
+              <Mutation mutation={setUsernameMutation}>
+                {(setUsername) => {
+                  return (
+                    <div className="App">
+                      <input
+                        type="text"
+                        onChange={(event) => {
+                          typedUsername = event.target.value
+                        }}
+                        placeholder="username..."
+                      />
+                      <button
+                        onClick={() => {
+                          typedUsername && setUsername({
+                            variables: {
+                              username: typedUsername,
+                            },
+                          });
+                        }}
+                      >
+                        login
+                      </button>
+                    </div>
+                  );
+                  
+                }}
+              </Mutation>
+            );
+            
+          }}
+        </Query>
       </ApolloProvider>
     );
   }

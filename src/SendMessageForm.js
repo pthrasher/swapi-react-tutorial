@@ -24,16 +24,12 @@ const updateQuery = gql`
 class SendMessageForm extends Component {
   static propTypes = {
     onSubmit: PropTypes.func.isRequired,
+    username: PropTypes.string.isRequired,
   };
   
   state = {
-    username: '',
     messageBody: '',
   };
-  
-  onUsernameChange = (event) => {
-    this.setState({username: event.target.value});
-  }
   
   onMessageBodyChange = (event) => {
     this.setState({messageBody: event.target.value});
@@ -47,7 +43,7 @@ class SendMessageForm extends Component {
           __typename: 'Message',
           id: uniqueId('TEMPORARY'),
           timestamp: +new Date(),
-          username: this.state.username,
+          username: this.props.username,
           messageBody: this.state.messageBody,
         },
       },
@@ -59,7 +55,7 @@ class SendMessageForm extends Component {
         proxy.writeQuery({ query: updateQuery, data });
       },
       variables: {
-        username: this.state.username,
+        username: this.props.username,
         messageBody: this.state.messageBody
       }
     });
@@ -68,8 +64,8 @@ class SendMessageForm extends Component {
   render() {
     return (
       <div>
-        <input type="text" placeholder="username..." value={this.state.username} onChange={this.onUsernameChange} />
-        <input type="text" placeholder="message body..." value={this.state.messageBody} onChange={this.onMessageBodyChange} />
+        <h1>Hello {this.props.username}!</h1>
+        <textarea placeholder="message body..." value={this.state.messageBody} onChange={this.onMessageBodyChange} />
         <button onClick={this.sendMessage}>Send</button>
       </div>
     );
