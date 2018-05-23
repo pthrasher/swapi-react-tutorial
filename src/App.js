@@ -35,7 +35,6 @@ const networkLink = split(
 
 const cache = new InMemoryCache();
 
-cache.resetState(JSON.parse(localStorage.getItem('grxapollocache')));
 
 const linkStateConfig = {
   cache,
